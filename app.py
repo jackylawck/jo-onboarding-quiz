@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime, timezone, timedelta
 
-st.set_page_config(page_title="入職培訓問卷及意見調查", page_icon="📝")
+st.set_page_config(page_title="入職培訓問卷及意見調查 (ISO合規版)", page_icon="📝")
 
 # ---------------------------------------------------------
 # 1. 前端門禁驗證 (Access Code)
@@ -25,7 +25,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. Session State 流程與下載狀態控管
+# 2. Session State 流程與狀態控管
 # ---------------------------------------------------------
 if "step" not in st.session_state:
     st.session_state.step = 1
@@ -59,7 +59,7 @@ def clean_text(val):
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (包含日期時間)
+# 4. PDF 生成函數 (加入 ISO 文件編號與合規頁尾)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF()
@@ -73,6 +73,12 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     else:
         pdf.set_font("Helvetica", size=11)
 
+    # ISO 文件管制 Header
+    pdf.set_font_size(9)
+    pdf.cell(190, 5, txt="ISO 9001/14001/45001 Integrated Management System Controlled Record", ln=True, align="R")
+    pdf.cell(190, 5, txt="Document ID: JO-HR-REC-2026-V1 | Confidential", ln=True, align="R")
+    pdf.ln(3)
+
     # 標題
     pdf.set_font_size(16)
     pdf.cell(190, 10, txt="新員工入職培訓考核及問卷報告", ln=True, align="C")
@@ -83,7 +89,7 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf.cell(190, 8, txt=f"姓名：{basic_info['name']}", ln=True)
     pdf.cell(190, 8, txt=f"職員編號：{basic_info['emp_id']}", ln=True)
     pdf.cell(190, 8, txt=f"組別：{basic_info['dept']}", ln=True)
-    pdf.cell(190, 8, txt=f"提交時間：{submit_time_str}", ln=True)
+    pdf.cell(190, 8, txt=f"考核/提交時間：{submit_time_str}", ln=True)
     pdf.cell(190, 8, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']}", ln=True)
     pdf.cell(190, 8, txt=f"合格率：{quiz_result['pass_rate']:.1f}%", ln=True)
     status_str = "合格 (PASS)" if quiz_result['is_pass'] else "不合格 (FAIL)"
@@ -126,6 +132,11 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf.multi_cell(190, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
     pdf.multi_cell(190, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
     pdf.multi_cell(190, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
+    pdf.ln(5)
+
+    # ISO 聲明
+    pdf.set_font_size(8)
+    pdf.multi_cell(190, 4, txt="聲明：本文件為 ISO 合規培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理與審計用途。")
 
     return bytes(pdf.output())
 
@@ -137,6 +148,7 @@ def mark_as_downloaded():
 # =========================================================
 if st.session_state.step == 1:
     st.title("📝 第一部分：新員工入職培訓測驗")
+    st.caption("符合 ISO 9001 條款 7.2 員工意識與勝任能力考核要求")
     
     with st.form("step1_form"):
         col1, col2, col3 = st.columns(3)
@@ -164,11 +176,17 @@ if st.session_state.step == 1:
                     )
                 user_answers[q["id"]] = sub_ans
 
+        # ISO 聲明勾選框
+        st.divider()
+        declaration = st.checkbox("本人確認上述資料正確，並由本人獨立完成測驗。 *")
+
         submit_step1 = st.form_submit_button("提交測驗並檢視得分 ➔")
 
     if submit_step1:
         if not name or not emp_id or dept == "請選擇組別":
             st.warning("請先完整填寫姓名、職員編號並選擇組別！")
+        elif not declaration:
+            st.warning("請先勾選個人確認與誠信聲明方可提交！")
         else:
             score = 0
             total_items = 20
@@ -247,7 +265,7 @@ elif st.session_state.step == 2:
         s3_q4 = st.text_area("4. 您對於公司未來的發展方向有什麼建議？")
         s3_q5 = st.text_area("5. 其他建議或意見？")
 
-        submit_step2 = st.form_submit_button("完成問卷並生成 PDF 報告 ➔")
+        submit_step2 = st.form_submit_button("完成問卷並生成 ISO 報告 ➔")
 
     if submit_step2:
         st.session_state.survey_data = {
@@ -274,11 +292,11 @@ elif st.session_state.step == 3:
     st.title("🎉 第三部分：考核與問卷完成！")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
-    # 動態生成 PDF 檔 (傳入時間)
+    # 動態生成 PDF 檔
     pdf_bytes = generate_pdf(b_info, q_res, s_data, sub_time)
     
     st.divider()
-    st.subheader("📥 步驟 1：下載 PDF 報告檔 (必須先下載)")
+    st.subheader("📥 步驟 1：下載 ISO PDF 報告檔 (必須先下載)")
     
     st.download_button(
         label=f"點此下載「入職培訓紀錄_{b_info['name']}.pdf」",
@@ -296,7 +314,6 @@ elif st.session_state.step == 3:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
         st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
-        # 1. 主推電郵 (優先顯示)
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
         email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
@@ -332,7 +349,6 @@ elif st.session_state.step == 3:
         st.write("")
         st.write("")
 
-        # 2. 備用 WhatsApp (使用 st.expander 捲起/摺疊)
         with st.expander("💬 如無法使用電郵，可點此展開透過 WhatsApp 發送給 HR"):
             st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
             wa_phone = "85295423912"
