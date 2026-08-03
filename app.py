@@ -24,7 +24,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. Session State 流程控管 (第一部分: 測驗 -> 第二部分: 問卷調查 -> 第三部分: 下載/發送)
+# 2. Session State 流程控管
 # ---------------------------------------------------------
 if "step" not in st.session_state:
     st.session_state.step = 1
@@ -48,11 +48,18 @@ DEPT_OPTIONS = [
     "安全及環保組", "營運審計組", "會計組", "物控組", "倉管組", "其他"
 ]
 
+# 安全清理文字格式函數（清洗換行符，避免 FPDF 斷行崩潰）
+def clean_text(val):
+    if not val:
+        return "無"
+    return str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
+
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (包含測驗成績 + 完整調查問卷內容)
+# 4. PDF 生成函數 (已修復換行與自動分頁 Bug)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data):
     pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     
     font_path = "NotoSansTC-Regular.ttf"
@@ -85,7 +92,7 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     pdf.cell(0, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=True)
     pdf.cell(0, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=True)
     pdf.cell(0, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=True)
-    pdf.multi_cell(0, 6, txt=f"4. 需要改進或增補內容：{survey_data.get('s1_q4', '無')}")
+    pdf.multi_cell(0, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
     pdf.ln(3)
 
     # 二、個人興趣及公司活動
@@ -95,25 +102,25 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     pdf.cell(0, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=True)
     sports_str = ", ".join(survey_data.get('s2_q2', []))
     if survey_data.get('s2_q2_other'): sports_str += f" ({survey_data.get('s2_q2_other')})"
-    pdf.multi_cell(0, 6, txt=f"2. 運動愛好：{sports_str if sports_str else '無'}")
+    pdf.multi_cell(0, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
     pdf.cell(0, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=True)
     vol_str = ", ".join(survey_data.get('s2_q4', []))
     if survey_data.get('s2_q4_other'): vol_str += f" ({survey_data.get('s2_q4_other')})"
-    pdf.multi_cell(0, 6, txt=f"4. 公益活動興趣：{vol_str if vol_str else '無'}")
+    pdf.multi_cell(0, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
     pdf.cell(0, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=True)
-    pdf.multi_cell(0, 6, txt=f"6. 工作與生活平衡看法：{survey_data.get('s2_q6', '無')}")
-    pdf.multi_cell(0, 6, txt=f"7. 未來公司活動建議：{survey_data.get('s2_q7', '無')}")
+    pdf.multi_cell(0, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
+    pdf.multi_cell(0, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
     pdf.ln(3)
 
     # 三、開放式問題
     pdf.set_font_size(13)
     pdf.cell(0, 8, txt="三、開放式問題", ln=True)
     pdf.set_font_size(10)
-    pdf.multi_cell(0, 6, txt=f"1. 對公司文化的看法：{survey_data.get('s3_q1', '無')}")
-    pdf.multi_cell(0, 6, txt=f"2. 公司優勢與改進建議：{survey_data.get('s3_q2', '無')}")
-    pdf.multi_cell(0, 6, txt=f"3. 希望獲得的額外支持/資源：{survey_data.get('s3_q3', '無')}")
-    pdf.multi_cell(0, 6, txt=f"4. 對公司未來發展方向的建議：{survey_data.get('s3_q4', '無')}")
-    pdf.multi_cell(0, 6, txt=f"5. 其他建議或意見：{survey_data.get('s3_q5', '無')}")
+    pdf.multi_cell(0, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
+    pdf.multi_cell(0, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
+    pdf.multi_cell(0, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
+    pdf.multi_cell(0, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
+    pdf.multi_cell(0, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
 
     return bytes(pdf.output())
 
@@ -155,7 +162,6 @@ if st.session_state.step == 1:
         if not name or not emp_id or dept == "請選擇組別":
             st.warning("請先完整填寫姓名、職員編號並選擇組別！")
         else:
-            # 計算測驗成績
             score = 0
             total_items = 20
             for q in questions:
@@ -173,7 +179,6 @@ if st.session_state.step == 1:
             pass_rate = (score / total_items) * 100
             is_pass = score >= 15
             
-            # 存入 Session State
             st.session_state.quiz_data = {
                 "basic_info": {"name": name, "emp_id": emp_id, "dept": dept},
                 "quiz_result": {"score": score, "total": total_items, "pass_rate": pass_rate, "is_pass": is_pass}
@@ -190,7 +195,6 @@ elif st.session_state.step == 2:
     
     st.title("📊 第二部分：測驗得分結果與問卷調查")
     
-    # 率先展示測驗得分！
     st.info(f"👤 員工：{b_info['name']} ({b_info['emp_id']}) | 組別：{b_info['dept']}")
     st.success(f"🎯 測驗得分：{q_res['score']} / {q_res['total']}（合格率：{q_res['pass_rate']:.1f}%）")
     if q_res['is_pass']:
@@ -272,7 +276,6 @@ elif st.session_state.step == 3:
     
     col_a, col_b = st.columns(2)
     
-    # 方式 A：開啟 Outlook 寄至 hrd@jumboorient.com.hk
     with col_a:
         st.markdown("#### ✉️ 方式 A：透過 Email / Outlook 發送")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
@@ -304,7 +307,6 @@ elif st.session_state.step == 3:
             unsafe_allow_url_safe=True
         )
 
-    # 方式 B：開啟 WhatsApp 發送至 HR (Tel: 9542 3912)
     with col_b:
         st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
         wa_phone = "85295423912"
