@@ -3,6 +3,8 @@ import json
 import urllib.parse
 from fpdf import FPDF
 import os
+from datetime import datetime
+import pytz
 
 st.set_page_config(page_title="入職培訓問卷及意見調查", page_icon="📝")
 
@@ -58,9 +60,9 @@ def clean_text(val):
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數
+# 4. PDF 生成函數 (加入日期與時間)
 # ---------------------------------------------------------
-def generate_pdf(basic_info, quiz_result, survey_data):
+def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -77,11 +79,12 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     pdf.cell(190, 10, txt="新員工入職培訓考核及問卷報告", ln=True, align="C")
     pdf.ln(5)
     
-    # 個人基本資料 & 測驗成績
+    # 個人基本資料、提交時間 & 測驗成績
     pdf.set_font_size(12)
     pdf.cell(190, 8, txt=f"姓名：{basic_info['name']}", ln=True)
     pdf.cell(190, 8, txt=f"職員編號：{basic_info['emp_id']}", ln=True)
     pdf.cell(190, 8, txt=f"組別：{basic_info['dept']}", ln=True)
+    pdf.cell(190, 8, txt=f"提交時間：{submit_time_str}", ln=True)
     pdf.cell(190, 8, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']}", ln=True)
     pdf.cell(190, 8, txt=f"合格率：{quiz_result['pass_rate']:.1f}%", ln=True)
     status_str = "合格 (PASS)" if quiz_result['is_pass'] else "不合格 (FAIL)"
@@ -185,9 +188,15 @@ if st.session_state.step == 1:
             pass_rate = (score / total_items) * 100
             is_pass = score >= 15
             
+            # 取得香港時間
+            hk_tz = pytz.timezone('Asia/Hong_Kong')
+            now_hk = datetime.now(hk_tz)
+            submit_time_str = now_hk.strftime("%Y-%m-%d %H:%M:%S")
+
             st.session_state.quiz_data = {
                 "basic_info": {"name": name, "emp_id": emp_id, "dept": dept},
-                "quiz_result": {"score": score, "total": total_items, "pass_rate": pass_rate, "is_pass": is_pass}
+                "quiz_result": {"score": score, "total": total_items, "pass_rate": pass_rate, "is_pass": is_pass},
+                "submit_time": submit_time_str
             }
             st.session_state.step = 2
             st.rerun()
@@ -253,20 +262,21 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送 (未下載前鎖定發送按鈕)
+# 第三部分：報告下載與發送 (優先電郵、WhatsApp摺疊)
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
     q_res = st.session_state.quiz_data["quiz_result"]
     s_data = st.session_state.survey_data
+    sub_time = st.session_state.quiz_data.get("submit_time", "")
     
     status_str = "合格 (PASS)" if q_res["is_pass"] else "不合格 (FAIL)"
     
     st.title("🎉 第三部分：考核與問卷完成！")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
-    # 動態生成 PDF 檔
-    pdf_bytes = generate_pdf(b_info, q_res, s_data)
+    # 動態生成 PDF 檔 (傳入時間)
+    pdf_bytes = generate_pdf(b_info, q_res, s_data, sub_time)
     
     st.divider()
     st.subheader("📥 步驟 1：下載 PDF 報告檔 (必須先下載)")
@@ -281,27 +291,25 @@ elif st.session_state.step == 3:
     
     st.divider()
     
-    # 強制流程：檢查是否已經點擊下載
     if not st.session_state.pdf_downloaded:
         st.warning("🔒 步驟 2 解鎖條件：請先點擊上方「步驟 1」按鈕下載 PDF 報告檔！")
     else:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
-        st.subheader("📩 步驟 2：選擇提交方式給 HR (電郵 / WhatsApp)")
+        st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
-        col_a, col_b = st.columns(2)
-        
-        with col_a:
-            st.markdown("#### ✉️ 方式 A：透過 Email / Outlook 發送")
-            email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
-            email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
-            email_body = f"""Dear HR：
+        # 1. 主推電郵 (優先顯示)
+        st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
+        email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
+        email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
+        email_body = f"""Dear HR：
 
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
-我已完成新員工入職培訓問卷考核及意見調查，結果如下：
+我已於 {sub_time} 完成新員工入職培訓問卷考核及意見調查，結果如下：
 
 • 姓名：{b_info['name']}
 • 職員編號：{b_info['emp_id']}
 • 組別：{b_info['dept']}
+• 提交時間：{sub_time}
 • 答對得分：{q_res['score']} / {q_res['total']}
 • 合格率：{q_res['pass_rate']:.1f}%
 • 考核結果：{status_str}
@@ -312,23 +320,27 @@ elif st.session_state.step == 3:
 
 （已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）
 """
-            mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
-            st.markdown(
-                f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
-                f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
-                f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
-                f'</button></a>',
-                unsafe_allow_html=True
-            )
-            st.caption("⚠️ 提示：開啟 Outlook 後，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
+        mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+        st.markdown(
+            f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
+            f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:8px;">'
+            f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
+            f'</button></a>',
+            unsafe_allow_html=True
+        )
+        st.caption("⚠️ 提示：開啟 Outlook 後，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
 
-        with col_b:
+        st.write("")
+        st.write("")
+
+        # 2. 備用 WhatsApp (使用 st.expander 捲起/摺疊)
+        with st.expander("💬 如無法使用電郵，可點此展開透過 WhatsApp 發送給 HR"):
             st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
             wa_phone = "85295423912"
             wa_msg = f"""Dear HR,
 
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
-我已完成新員工入職培訓問卷考核，成果如下：
+我已於 {sub_time} 完成新員工入職培訓問卷考核，成果如下：
 • 得分：{q_res['score']} / {q_res['total']} ({status_str})
 • 滿意度：{s_data['s1_q1']} / 5
 
@@ -336,7 +348,7 @@ elif st.session_state.step == 3:
             wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
             st.markdown(
                 f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
-                f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
+                f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:8px;">'
                 f'💬 開啟 WhatsApp (9542 3912)'
                 f'</button></a>',
                 unsafe_allow_html=True
