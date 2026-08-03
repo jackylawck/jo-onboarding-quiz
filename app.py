@@ -48,16 +48,14 @@ DEPT_OPTIONS = [
     "安全及環保組", "營運審計組", "會計組", "物控組", "倉管組", "其他"
 ]
 
-# 安全清理文字格式函數
 def clean_text(val):
     if not val:
         return "無"
-    # 移除全形/半型換行，避免 FPDF 斷行計算錯誤
     cleaned = str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (已徹底解決 FPDF 中文斷行 Exception)
+# 4. PDF 生成函數
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data):
     pdf = FPDF()
@@ -87,7 +85,7 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     pdf.cell(190, 8, txt=f"考核結果：{status_str}", ln=True)
     pdf.ln(5)
 
-    # 一、基本培訓評估問題 (指定寬度 w=190 防爆)
+    # 一、基本培訓評估問題
     pdf.set_font_size(13)
     pdf.cell(190, 8, txt="一、基本培訓評估問題", ln=True)
     pdf.set_font_size(10)
@@ -306,7 +304,7 @@ elif st.session_state.step == 3:
             f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
             f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
             f'</button></a>',
-            unsafe_allow_url_safe=True
+            unsafe_allow_html=True
         )
 
     with col_b:
@@ -326,7 +324,7 @@ elif st.session_state.step == 3:
             f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
             f'💬 開啟 WhatsApp (9542 3912)'
             f'</button></a>',
-            unsafe_allow_url_safe=True
+            unsafe_allow_html=True
         )
 
     st.write("")
