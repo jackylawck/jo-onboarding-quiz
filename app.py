@@ -61,10 +61,11 @@ def clean_text(val):
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數
+# 4. PDF 生成函數 (修復邊界與單欄排版，防止錯位)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
-    pdf = FPDF()
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_margins(15, 15, 15)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     
@@ -75,69 +76,67 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     else:
         pdf.set_font("Helvetica", size=11)
 
-    # 文件 Header
+    # Header
     pdf.set_font_size(9)
-    pdf.cell(190, 5, txt="Jumbo Orient Development Limited - IMS Controlled Record", ln=True, align="R")
-    pdf.cell(190, 5, txt="Document ID: JO-HR-REC-2026-V1 | Confidential", ln=True, align="R")
+    pdf.cell(0, 5, txt="Jumbo Orient Development Limited - IMS Controlled Record", ln=1, align="R")
+    pdf.cell(0, 5, txt="Document ID: JO-HR-REC-2026-V1 | Confidential", ln=1, align="R")
     pdf.ln(3)
 
     # 標題
     pdf.set_font_size(16)
-    pdf.cell(190, 10, txt="新員工入職培訓考核及問卷報告", ln=True, align="C")
+    pdf.cell(0, 10, txt="新員工入職培訓考核及問卷報告", ln=1, align="C")
     pdf.ln(5)
     
-    # 個人基本資料、提交時間 & 測驗成績
-    pdf.set_font_size(12)
-    pdf.cell(190, 8, txt=f"姓名：{basic_info['name']}", ln=True)
-    pdf.cell(190, 8, txt=f"職員編號：{basic_info['emp_id']}", ln=True)
-    pdf.cell(190, 8, txt=f"組別：{basic_info['dept']}", ln=True)
-    pdf.cell(190, 8, txt=f"考核/提交時間：{submit_time_str}", ln=True)
-    pdf.cell(190, 8, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']}", ln=True)
-    pdf.cell(190, 8, txt=f"合格率：{quiz_result['pass_rate']:.1f}%", ln=True)
+    # 個人基本資料 & 得分
+    pdf.set_font_size(11)
     status_str = "合格 (PASS)" if quiz_result['is_pass'] else "不合格 (FAIL)"
-    pdf.cell(190, 8, txt=f"考核結果：{status_str}", ln=True)
-    pdf.ln(5)
+    pdf.cell(0, 7, txt=f"姓名：{basic_info['name']}", ln=1)
+    pdf.cell(0, 7, txt=f"職員編號：{basic_info['emp_id']}", ln=1)
+    pdf.cell(0, 7, txt=f"組別：{basic_info['dept']}", ln=1)
+    pdf.cell(0, 7, txt=f"考核時間：{submit_time_str}", ln=1)
+    pdf.cell(0, 7, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']} ({quiz_result['pass_rate']:.1f}%) - {status_str}", ln=1)
+    pdf.ln(4)
 
     # 一、基本培訓評估問題
-    pdf.set_font_size(13)
-    pdf.cell(190, 8, txt="一、基本培訓評估問題", ln=True)
+    pdf.set_font_size(12)
+    pdf.cell(0, 8, txt="一、基本培訓評估問題", ln=1)
     pdf.set_font_size(10)
-    pdf.cell(190, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=True)
-    pdf.cell(190, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=True)
-    pdf.cell(190, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=True)
-    pdf.multi_cell(190, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
+    pdf.cell(0, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=1)
+    pdf.cell(0, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=1)
+    pdf.cell(0, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=1)
+    pdf.multi_cell(0, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
     pdf.ln(3)
 
     # 二、個人興趣及公司活動
-    pdf.set_font_size(13)
-    pdf.cell(190, 8, txt="二、個人興趣及公司活動", ln=True)
+    pdf.set_font_size(12)
+    pdf.cell(0, 8, txt="二、個人興趣及公司活動", ln=1)
     pdf.set_font_size(10)
-    pdf.cell(190, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=True)
+    pdf.cell(0, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=1)
     sports_str = ", ".join(survey_data.get('s2_q2', []))
     if survey_data.get('s2_q2_other'): sports_str += f" ({survey_data.get('s2_q2_other')})"
-    pdf.multi_cell(190, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
-    pdf.cell(190, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=True)
+    pdf.multi_cell(0, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
+    pdf.cell(0, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=1)
     vol_str = ", ".join(survey_data.get('s2_q4', []))
     if survey_data.get('s2_q4_other'): vol_str += f" ({survey_data.get('s2_q4_other')})"
-    pdf.multi_cell(190, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
-    pdf.cell(190, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=True)
-    pdf.multi_cell(190, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
-    pdf.multi_cell(190, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
+    pdf.multi_cell(0, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
+    pdf.cell(0, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=1)
+    pdf.multi_cell(0, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
+    pdf.multi_cell(0, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
     pdf.ln(3)
 
     # 三、開放式問題
-    pdf.set_font_size(13)
-    pdf.cell(190, 8, txt="三、開放式問題", ln=True)
+    pdf.set_font_size(12)
+    pdf.cell(0, 8, txt="三、開放式問題", ln=1)
     pdf.set_font_size(10)
-    pdf.multi_cell(190, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
-    pdf.multi_cell(190, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
-    pdf.multi_cell(190, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
-    pdf.multi_cell(190, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
-    pdf.multi_cell(190, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
+    pdf.multi_cell(0, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
+    pdf.multi_cell(0, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
+    pdf.multi_cell(0, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
+    pdf.multi_cell(0, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
+    pdf.multi_cell(0, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
     pdf.ln(5)
 
     pdf.set_font_size(8)
-    pdf.multi_cell(190, 4, txt="聲明：本文件為內部培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理用途。")
+    pdf.multi_cell(0, 4, txt="聲明：本文件為內部培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理用途。")
 
     return bytes(pdf.output())
 
@@ -282,7 +281,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送
+# 第三部分：報告下載與發送 (精簡 mailto 內文，確保 100% 觸發 Outlook)
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -297,7 +296,6 @@ elif st.session_state.step == 3:
     st.write("")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
-    # 動態生成 PDF 檔
     pdf_bytes = generate_pdf(b_info, q_res, s_data, sub_time)
     
     st.divider()
@@ -319,28 +317,17 @@ elif st.session_state.step == 3:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
         st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
+        # 精簡超連結文字，防止超出瀏覽器 mailto 長度上限
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
         email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
-        email_body = f"""Dear HR：
+        email_body = f"""Dear HR,
 
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
-我已於 {sub_time} 完成新員工入職培訓問卷考核及意見調查，結果如下：
+我已於 {sub_time} 完成新員工入職培訓問卷考核（得分：{q_res['score']}/{q_res['total']}，{status_str}）。
 
-• 姓名：{b_info['name']}
-• 職員編號：{b_info['emp_id']}
-• 組別：{b_info['dept']}
-• 提交時間：{sub_time}
-• 答對得分：{q_res['score']} / {q_res['total']}
-• 合格率：{q_res['pass_rate']:.1f}%
-• 考核結果：{status_str}
+（已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）"""
 
-• 培訓整體滿意度：{s_data['s1_q1']} / 5
-• 運動興趣：{s_data['s2_q1']} / 5
-• 義工意願：{s_data['s2_q3']} / 5
-
-（已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）
-"""
         mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
         st.markdown(
             f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
@@ -362,7 +349,6 @@ elif st.session_state.step == 3:
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
 我已於 {sub_time} 完成新員工入職培訓問卷考核，成果如下：
 • 得分：{q_res['score']} / {q_res['total']} ({status_str})
-• 滿意度：{s_data['s1_q1']} / 5
 
 （已下載 PDF 報告檔，隨後於此對話發送給您）"""
             wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
