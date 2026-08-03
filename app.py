@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime, timezone, timedelta
 
-st.set_page_config(page_title="入職培訓問卷及意見調查 (ISO合規版)", page_icon="📝")
+st.set_page_config(page_title="入職培訓問卷及意見調查", page_icon="📝")
 
 # ---------------------------------------------------------
 # 1. 前端門禁驗證 (Access Code)
@@ -59,7 +59,7 @@ def clean_text(val):
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (加入 ISO 文件編號與合規頁尾)
+# 4. PDF 生成函數
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF()
@@ -73,9 +73,9 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     else:
         pdf.set_font("Helvetica", size=11)
 
-    # ISO 文件管制 Header
+    # 文件 Header
     pdf.set_font_size(9)
-    pdf.cell(190, 5, txt="ISO 9001/14001/45001 Integrated Management System Controlled Record", ln=True, align="R")
+    pdf.cell(190, 5, txt="Integrated Management System Controlled Record", ln=True, align="R")
     pdf.cell(190, 5, txt="Document ID: JO-HR-REC-2026-V1 | Confidential", ln=True, align="R")
     pdf.ln(3)
 
@@ -134,9 +134,8 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf.multi_cell(190, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
     pdf.ln(5)
 
-    # ISO 聲明
     pdf.set_font_size(8)
-    pdf.multi_cell(190, 4, txt="聲明：本文件為 ISO 合規培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理與審計用途。")
+    pdf.multi_cell(190, 4, txt="聲明：本文件為內部培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理用途。")
 
     return bytes(pdf.output())
 
@@ -148,7 +147,6 @@ def mark_as_downloaded():
 # =========================================================
 if st.session_state.step == 1:
     st.title("📝 第一部分：新員工入職培訓測驗")
-    st.caption("符合 ISO 9001 條款 7.2 員工意識與勝任能力考核要求")
     
     with st.form("step1_form"):
         col1, col2, col3 = st.columns(3)
@@ -176,7 +174,6 @@ if st.session_state.step == 1:
                     )
                 user_answers[q["id"]] = sub_ans
 
-        # ISO 聲明勾選框
         st.divider()
         declaration = st.checkbox("本人確認上述資料正確，並由本人獨立完成測驗。 *")
 
@@ -186,7 +183,7 @@ if st.session_state.step == 1:
         if not name or not emp_id or dept == "請選擇組別":
             st.warning("請先完整填寫姓名、職員編號並選擇組別！")
         elif not declaration:
-            st.warning("請先勾選個人確認與誠信聲明方可提交！")
+            st.warning("請先勾選個人確認聲明方可提交！")
         else:
             score = 0
             total_items = 20
@@ -205,7 +202,6 @@ if st.session_state.step == 1:
             pass_rate = (score / total_items) * 100
             is_pass = score >= 15
             
-            # 使用原生 datetime 計算香港時間 (UTC+8)
             hk_tz = timezone(timedelta(hours=8))
             now_hk = datetime.now(hk_tz)
             submit_time_str = now_hk.strftime("%Y-%m-%d %H:%M:%S")
@@ -265,7 +261,7 @@ elif st.session_state.step == 2:
         s3_q4 = st.text_area("4. 您對於公司未來的發展方向有什麼建議？")
         s3_q5 = st.text_area("5. 其他建議或意見？")
 
-        submit_step2 = st.form_submit_button("完成問卷並生成 ISO 報告 ➔")
+        submit_step2 = st.form_submit_button("完成問卷並生成 PDF 報告 ➔")
 
     if submit_step2:
         st.session_state.survey_data = {
@@ -296,7 +292,7 @@ elif st.session_state.step == 3:
     pdf_bytes = generate_pdf(b_info, q_res, s_data, sub_time)
     
     st.divider()
-    st.subheader("📥 步驟 1：下載 ISO PDF 報告檔 (必須先下載)")
+    st.subheader("📥 步驟 1：下載 PDF 報告檔 (必須先下載)")
     
     st.download_button(
         label=f"點此下載「入職培訓紀錄_{b_info['name']}.pdf」",
@@ -314,6 +310,7 @@ elif st.session_state.step == 3:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
         st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
+        # 1. 主推電郵
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
         email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
@@ -349,6 +346,7 @@ elif st.session_state.step == 3:
         st.write("")
         st.write("")
 
+        # 2. 備用 WhatsApp (摺疊選單)
         with st.expander("💬 如無法使用電郵，可點此展開透過 WhatsApp 發送給 HR"):
             st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
             wa_phone = "85295423912"
