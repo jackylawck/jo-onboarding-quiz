@@ -48,14 +48,16 @@ DEPT_OPTIONS = [
     "安全及環保組", "營運審計組", "會計組", "物控組", "倉管組", "其他"
 ]
 
-# 安全清理文字格式函數（清洗換行符，避免 FPDF 斷行崩潰）
+# 安全清理文字格式函數
 def clean_text(val):
     if not val:
         return "無"
-    return str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
+    # 移除全形/半型換行，避免 FPDF 斷行計算錯誤
+    cleaned = str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
+    return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (已修復換行與自動分頁 Bug)
+# 4. PDF 生成函數 (已徹底解決 FPDF 中文斷行 Exception)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data):
     pdf = FPDF()
@@ -71,56 +73,56 @@ def generate_pdf(basic_info, quiz_result, survey_data):
 
     # 標題
     pdf.set_font_size(16)
-    pdf.cell(0, 10, txt="新員工入職培訓考核及問卷報告", ln=True, align="C")
+    pdf.cell(190, 10, txt="新員工入職培訓考核及問卷報告", ln=True, align="C")
     pdf.ln(5)
     
     # 個人基本資料 & 測驗成績
     pdf.set_font_size(12)
-    pdf.cell(0, 8, txt=f"姓名：{basic_info['name']}", ln=True)
-    pdf.cell(0, 8, txt=f"職員編號：{basic_info['emp_id']}", ln=True)
-    pdf.cell(0, 8, txt=f"組別：{basic_info['dept']}", ln=True)
-    pdf.cell(0, 8, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']}", ln=True)
-    pdf.cell(0, 8, txt=f"合格率：{quiz_result['pass_rate']:.1f}%", ln=True)
+    pdf.cell(190, 8, txt=f"姓名：{basic_info['name']}", ln=True)
+    pdf.cell(190, 8, txt=f"職員編號：{basic_info['emp_id']}", ln=True)
+    pdf.cell(190, 8, txt=f"組別：{basic_info['dept']}", ln=True)
+    pdf.cell(190, 8, txt=f"測驗得分：{quiz_result['score']} / {quiz_result['total']}", ln=True)
+    pdf.cell(190, 8, txt=f"合格率：{quiz_result['pass_rate']:.1f}%", ln=True)
     status_str = "合格 (PASS)" if quiz_result['is_pass'] else "不合格 (FAIL)"
-    pdf.cell(0, 8, txt=f"考核結果：{status_str}", ln=True)
+    pdf.cell(190, 8, txt=f"考核結果：{status_str}", ln=True)
     pdf.ln(5)
 
-    # 一、基本培訓評估問題
+    # 一、基本培訓評估問題 (指定寬度 w=190 防爆)
     pdf.set_font_size(13)
-    pdf.cell(0, 8, txt="一、基本培訓評估問題", ln=True)
+    pdf.cell(190, 8, txt="一、基本培訓評估問題", ln=True)
     pdf.set_font_size(10)
-    pdf.cell(0, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=True)
-    pdf.cell(0, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=True)
-    pdf.cell(0, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=True)
-    pdf.multi_cell(0, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
+    pdf.cell(190, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=True)
+    pdf.cell(190, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=True)
+    pdf.cell(190, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=True)
+    pdf.multi_cell(190, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
     pdf.ln(3)
 
     # 二、個人興趣及公司活動
     pdf.set_font_size(13)
-    pdf.cell(0, 8, txt="二、個人興趣及公司活動", ln=True)
+    pdf.cell(190, 8, txt="二、個人興趣及公司活動", ln=True)
     pdf.set_font_size(10)
-    pdf.cell(0, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=True)
+    pdf.cell(190, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=True)
     sports_str = ", ".join(survey_data.get('s2_q2', []))
     if survey_data.get('s2_q2_other'): sports_str += f" ({survey_data.get('s2_q2_other')})"
-    pdf.multi_cell(0, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
-    pdf.cell(0, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=True)
+    pdf.multi_cell(190, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
+    pdf.cell(190, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=True)
     vol_str = ", ".join(survey_data.get('s2_q4', []))
     if survey_data.get('s2_q4_other'): vol_str += f" ({survey_data.get('s2_q4_other')})"
-    pdf.multi_cell(0, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
-    pdf.cell(0, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=True)
-    pdf.multi_cell(0, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
-    pdf.multi_cell(0, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
+    pdf.multi_cell(190, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
+    pdf.cell(190, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=True)
+    pdf.multi_cell(190, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
+    pdf.multi_cell(190, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
     pdf.ln(3)
 
     # 三、開放式問題
     pdf.set_font_size(13)
-    pdf.cell(0, 8, txt="三、開放式問題", ln=True)
+    pdf.cell(190, 8, txt="三、開放式問題", ln=True)
     pdf.set_font_size(10)
-    pdf.multi_cell(0, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
-    pdf.multi_cell(0, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
-    pdf.multi_cell(0, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
-    pdf.multi_cell(0, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
-    pdf.multi_cell(0, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
+    pdf.multi_cell(190, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
+    pdf.multi_cell(190, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
+    pdf.multi_cell(190, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
+    pdf.multi_cell(190, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
+    pdf.multi_cell(190, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
 
     return bytes(pdf.output())
 
@@ -259,7 +261,7 @@ elif st.session_state.step == 3:
     st.title("🎉 第三部分：考核與問卷完成！")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
-    # 1. 動態生成 PDF 檔
+    # 動態生成 PDF 檔
     pdf_bytes = generate_pdf(b_info, q_res, s_data)
     
     st.divider()
