@@ -1,9 +1,6 @@
 import streamlit as st
 import json
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
+import urllib.parse
 from fpdf import FPDF
 import os
 
@@ -62,28 +59,7 @@ def generate_pdf(name, dept, score, total, pass_rate, is_pass):
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 4. SMTP 電郵發送函數
-# ---------------------------------------------------------
-def send_email(pdf_bytes, name, dept, pass_rate):
-    msg = MIMEMultipart()
-    msg['From'] = st.secrets["SMTP_USER"]
-    msg['To'] = st.secrets["HR_EMAIL"]
-    msg['Subject'] = f"【入職培訓結果】{dept} - {name} (合格率: {pass_rate:.1f}%)"
-    
-    body = f"HR 同事，\n\n附件為員工 {name} ({dept}) 的入職培訓問卷結果 PDF。\n合格率：{pass_rate:.1f}%\n\n系統自動發送。"
-    msg.attach(MIMEText(body, 'plain'))
-    
-    pdf_attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
-    pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f"Training_Result_{name}.pdf")
-    msg.attach(pdf_attachment)
-    
-    with smtplib.SMTP(st.secrets["SMTP_SERVER"], int(st.secrets["SMTP_PORT"])) as server:
-        server.starttls()
-        server.login(st.secrets["SMTP_USER"], st.secrets["SMTP_PASSWORD"])
-        server.send_message(msg)
-
-# ---------------------------------------------------------
-# 5. 問卷 UI 畫面渲染
+# 4. 問卷 UI 畫面渲染
 # ---------------------------------------------------------
 st.title("📝 新員工入職培訓問卷")
 
@@ -115,7 +91,7 @@ with st.form("quiz_form"):
     submit_button = st.form_submit_button("提交問卷 (Submit)")
 
 # ---------------------------------------------------------
-# 6. 提交後：比對答案與計分 (總分 20 分)
+# 5. 提交後處理：計分 + 下載 PDF + 開啟 Outlook 寄信
 # ---------------------------------------------------------
 if submit_button:
     if not name or not dept:
@@ -148,7 +124,9 @@ if submit_button:
 
         pass_rate = (score / total_items) * 100
         is_pass = score >= 16  # 16 分即達 80% 合格
+        status_str = "合格 (PASS)" if is_pass else "不合格 (FAIL)"
         
+        # 前端結果展示
         st.success(f"提交成功！得分：{score} / {total_items}（合格率：{pass_rate:.1f}%）")
         if is_pass:
             st.balloons()
@@ -156,9 +134,43 @@ if submit_button:
         else:
             st.error("⚠️ 未達 16 分 (80%) 合格標準。")
             
-        try:
-            pdf_bytes = generate_pdf(name, dept, score, total_items, pass_rate, is_pass)
-            send_email(pdf_bytes, name, dept, pass_rate)
-            st.info("📧 培訓紀錄 PDF 已自動發送至 HR 電郵。")
-        except Exception as e:
-            st.error(f"電郵發送失敗，請聯絡管理員。(錯誤: {e})")
+        st.divider()
+        st.subheader("📩 請完成以下步驟發送結果給 HR 部門：")
+
+        # 步驟一：下載 PDF 檔案
+        pdf_bytes = generate_pdf(name, dept, score, total_items, pass_rate, is_pass)
+        st.download_button(
+            label="步驟 1：📥 下載考核紀錄 PDF (請隨信附上)",
+            data=pdf_bytes,
+            file_name=f"入職培訓紀錄_{name}.pdf",
+            mime="application/pdf"
+        )
+
+        # 步驟二：自動組裝 Outlook 郵件 (mailto)
+        email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
+        email_subject = f"【入職培訓結果】{dept} - {name} ({status_str})"
+        
+        email_body = f"""HR 同事：
+
+我是 {dept} 的 {name}。
+我已完成新員工入職培訓問卷考核，考核結果如下：
+
+• 姓名：{name}
+• 組別：{dept}
+• 答對得分：{score} / {total_items}
+• 合格率：{pass_rate:.1f}%
+• 考核結果：{status_str}
+
+（附件已附上「入職培訓紀錄_{name}.pdf」檔案）
+"""
+        # 轉碼為 URL 安全格式
+        mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+
+        st.write("")
+        st.markdown(
+            f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
+            f'<button style="background-color:#0078D4; color:white; padding:12px 24px; border:none; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer;">'
+            f'步驟 2：📧 點擊此處直接開啟 Outlook 發送信件'
+            f'</button></a>',
+            unsafe_allow_url_safe=True
+        )
