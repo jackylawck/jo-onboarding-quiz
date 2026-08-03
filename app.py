@@ -5,7 +5,7 @@ from fpdf import FPDF
 import os
 from datetime import datetime, timezone, timedelta
 
-st.set_page_config(page_title="入職培訓問卷及意見調查", page_icon="📝")
+st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝")
 
 # ---------------------------------------------------------
 # 1. 前端門禁驗證 (Access Code)
@@ -14,10 +14,12 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.title("🔒 企業內部培訓系統")
+    st.title("🔒 東淦新員工入職培訓考核及問卷系統")
+    st.markdown("🏢 [東淦工程有限公司 (Jumbo Orient) 官方網站](https://www.jumboorient.com.hk/)", unsafe_allow_html=True)
+    st.write("")
     user_code = st.text_input("請輸入員工通行碼以開始測驗：", type="password")
     if st.button("確認"):
-        if user_code == st.secrets.get("ACCESS_CODE", "jo2026"):
+        if user_code == st.secrets.get("ACCESS_CODE", "jo1996"):
             st.session_state.authenticated = True
             st.rerun()
         else:
@@ -75,7 +77,7 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
 
     # 文件 Header
     pdf.set_font_size(9)
-    pdf.cell(190, 5, txt="Integrated Management System Controlled Record", ln=True, align="R")
+    pdf.cell(190, 5, txt="Jumbo Orient Development Limited - IMS Controlled Record", ln=True, align="R")
     pdf.cell(190, 5, txt="Document ID: JO-HR-REC-2026-V1 | Confidential", ln=True, align="R")
     pdf.ln(3)
 
@@ -146,7 +148,10 @@ def mark_as_downloaded():
 # 第一部分：新員工入職培訓測驗
 # =========================================================
 if st.session_state.step == 1:
-    st.title("📝 第一部分：新員工入職培訓測驗")
+    st.title("📝 東淦新員工入職培訓考核及問卷系統")
+    st.markdown("🏢 [東淦工程有限公司 (Jumbo Orient) 官方網站](https://www.jumboorient.com.hk/)", unsafe_allow_html=True)
+    st.write("")
+    st.subheader("第一部分：新員工入職培訓測驗")
     
     with st.form("step1_form"):
         col1, col2, col3 = st.columns(3)
@@ -222,6 +227,8 @@ elif st.session_state.step == 2:
     b_info = st.session_state.quiz_data["basic_info"]
     
     st.title("📊 第二部分：測驗得分結果與問卷調查")
+    st.markdown("🏢 [東淦工程有限公司 (Jumbo Orient) 官方網站](https://www.jumboorient.com.hk/)", unsafe_allow_html=True)
+    st.write("")
     
     st.info(f"👤 員工：{b_info['name']} ({b_info['emp_id']}) | 組別：{b_info['dept']}")
     st.success(f"🎯 測驗得分：{q_res['score']} / {q_res['total']}（合格率：{q_res['pass_rate']:.1f}%）")
@@ -275,7 +282,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送 (優先電郵、WhatsApp摺疊)
+# 第三部分：報告下載與發送
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -286,6 +293,8 @@ elif st.session_state.step == 3:
     status_str = "合格 (PASS)" if q_res["is_pass"] else "不合格 (FAIL)"
     
     st.title("🎉 第三部分：考核與問卷完成！")
+    st.markdown("🏢 [東淦工程有限公司 (Jumbo Orient) 官方網站](https://www.jumboorient.com.hk/)", unsafe_allow_html=True)
+    st.write("")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
     # 動態生成 PDF 檔
@@ -310,7 +319,6 @@ elif st.session_state.step == 3:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
         st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
-        # 1. 主推電郵
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
         email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
@@ -346,7 +354,6 @@ elif st.session_state.step == 3:
         st.write("")
         st.write("")
 
-        # 2. 備用 WhatsApp (摺疊選單)
         with st.expander("💬 如無法使用電郵，可點此展開透過 WhatsApp 發送給 HR"):
             st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
             wa_phone = "85295423912"
