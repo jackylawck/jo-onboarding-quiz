@@ -24,13 +24,16 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. Session State 流程控管
+# 2. Session State 流程與下載狀態控管
 # ---------------------------------------------------------
 if "step" not in st.session_state:
     st.session_state.step = 1
 
 if "quiz_data" not in st.session_state:
     st.session_state.quiz_data = {}
+
+if "pdf_downloaded" not in st.session_state:
+    st.session_state.pdf_downloaded = False
 
 # ---------------------------------------------------------
 # 3. 讀取測驗題庫
@@ -123,6 +126,9 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     pdf.multi_cell(190, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
 
     return bytes(pdf.output())
+
+def mark_as_downloaded():
+    st.session_state.pdf_downloaded = True
 
 # =========================================================
 # 第一部分：新員工入職培訓測驗
@@ -247,7 +253,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送 (Email / WhatsApp)
+# 第三部分：報告下載與發送 (未下載前鎖定發送按鈕)
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -263,24 +269,32 @@ elif st.session_state.step == 3:
     pdf_bytes = generate_pdf(b_info, q_res, s_data)
     
     st.divider()
-    st.subheader("📥 步驟 1：下載 PDF 報告檔")
+    st.subheader("📥 步驟 1：下載 PDF 報告檔 (必須先下載)")
+    
     st.download_button(
         label=f"點此下載「入職培訓紀錄_{b_info['name']}.pdf」",
         data=pdf_bytes,
         file_name=f"入職培訓紀錄_{b_info['name']}.pdf",
-        mime="application/pdf"
+        mime="application/pdf",
+        on_click=mark_as_downloaded
     )
     
     st.divider()
-    st.subheader("📩 步驟 2：選擇提交方式給 HR")
     
-    col_a, col_b = st.columns(2)
-    
-    with col_a:
-        st.markdown("#### ✉️ 方式 A：透過 Email / Outlook 發送")
-        email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
-        email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
-        email_body = f"""Dear HR：
+    # 強制流程：檢查是否已經點擊下載
+    if not st.session_state.pdf_downloaded:
+        st.warning("🔒 步驟 2 解鎖條件：請先點擊上方「步驟 1」按鈕下載 PDF 報告檔！")
+    else:
+        st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
+        st.subheader("📩 步驟 2：選擇提交方式給 HR (電郵 / WhatsApp)")
+        
+        col_a, col_b = st.columns(2)
+        
+        with col_a:
+            st.markdown("#### ✉️ 方式 A：透過 Email / Outlook 發送")
+            email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
+            email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
+            email_body = f"""Dear HR：
 
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
 我已完成新員工入職培訓問卷考核及意見調查，結果如下：
@@ -298,19 +312,20 @@ elif st.session_state.step == 3:
 
 （已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）
 """
-        mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
-        st.markdown(
-            f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
-            f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
-            f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
-            f'</button></a>',
-            unsafe_allow_html=True
-        )
+            mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+            st.markdown(
+                f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
+                f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
+                f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
+                f'</button></a>',
+                unsafe_allow_html=True
+            )
+            st.caption("⚠️ 提示：開啟 Outlook 後，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
 
-    with col_b:
-        st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
-        wa_phone = "85295423912"
-        wa_msg = f"""Dear HR,
+        with col_b:
+            st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
+            wa_phone = "85295423912"
+            wa_msg = f"""Dear HR,
 
 我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
 我已完成新員工入職培訓問卷考核，成果如下：
@@ -318,17 +333,19 @@ elif st.session_state.step == 3:
 • 滿意度：{s_data['s1_q1']} / 5
 
 （已下載 PDF 報告檔，隨後於此對話發送給您）"""
-        wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
-        st.markdown(
-            f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
-            f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
-            f'💬 開啟 WhatsApp (9542 3912)'
-            f'</button></a>',
-            unsafe_allow_html=True
-        )
+            wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
+            st.markdown(
+                f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
+                f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%;">'
+                f'💬 開啟 WhatsApp (9542 3912)'
+                f'</button></a>',
+                unsafe_allow_html=True
+            )
+            st.caption("⚠️ 提示：開啟 WhatsApp 對話後，請點擊加號/夾子圖示傳送剛下載的 PDF 報告。")
 
     st.write("")
     if st.button("🔄 重新填寫問卷"):
         st.session_state.step = 1
         st.session_state.quiz_data = {}
+        st.session_state.pdf_downloaded = False
         st.rerun()
