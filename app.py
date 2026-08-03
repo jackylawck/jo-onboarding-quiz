@@ -24,7 +24,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ---------------------------------------------------------
-# 2. Session State 流程控管 (Step 1: 測驗 -> Step 2: 調查 -> Step 3: 下載/發送)
+# 2. Session State 流程控管 (第一部分: 測驗 -> 第二部分: 問卷調查 -> 第三部分: 下載/發送)
 # ---------------------------------------------------------
 if "step" not in st.session_state:
     st.session_state.step = 1
@@ -118,10 +118,10 @@ def generate_pdf(basic_info, quiz_result, survey_data):
     return bytes(pdf.output())
 
 # =========================================================
-# 階段 1：第一部分 — 入職培訓測驗
+# 第一部分：新員工入職培訓測驗
 # =========================================================
 if st.session_state.step == 1:
-    st.title("📝 第一階段：新員工入職培訓測驗")
+    st.title("📝 第一部分：新員工入職培訓測驗")
     
     with st.form("step1_form"):
         col1, col2, col3 = st.columns(3)
@@ -182,13 +182,13 @@ if st.session_state.step == 1:
             st.rerun()
 
 # =========================================================
-# 階段 2：第二階段 — 培訓滿意度問卷與員工興趣調查
+# 第二部分：培訓滿意度問卷與員工興趣調查
 # =========================================================
 elif st.session_state.step == 2:
     q_res = st.session_state.quiz_data["quiz_result"]
     b_info = st.session_state.quiz_data["basic_info"]
     
-    st.title("📊 測驗得分結果與滿意度調查")
+    st.title("📊 第二部分：測驗得分結果與問卷調查")
     
     # 率先展示測驗得分！
     st.info(f"👤 員工：{b_info['name']} ({b_info['emp_id']}) | 組別：{b_info['dept']}")
@@ -243,7 +243,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 階段 3：第三階段 — 下載 PDF 與發送 (Email / WhatsApp)
+# 第三部分：報告下載與發送 (Email / WhatsApp)
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -252,7 +252,7 @@ elif st.session_state.step == 3:
     
     status_str = "合格 (PASS)" if q_res["is_pass"] else "不合格 (FAIL)"
     
-    st.title("🎉 考核與問卷完成！")
+    st.title("🎉 第三部分：考核與問卷完成！")
     st.subheader(f"成績摘要：{q_res['score']} / {q_res['total']}（{status_str}）")
     
     # 1. 動態生成 PDF 檔
