@@ -3,6 +3,7 @@ import json
 import urllib.parse
 from fpdf import FPDF
 import os
+import textwrap
 from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝")
@@ -60,8 +61,17 @@ def clean_text(val):
     cleaned = str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
     return cleaned if cleaned else "無"
 
+# 防爆安全印字函數 (自動將中文依字數切行，避免 FPDF multi_cell 崩潰)
+def print_safe_text(pdf, text, max_chars=32):
+    lines = textwrap.wrap(clean_text(text), width=max_chars)
+    if not lines:
+        pdf.cell(0, 6, txt="無", ln=1)
+    else:
+        for line in lines:
+            pdf.cell(0, 6, txt=line, ln=1)
+
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (修復邊界與單欄排版，防止錯位)
+# 4. PDF 生成函數 (完全不用 multi_cell，絕對不崩潰)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
@@ -104,7 +114,7 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf.cell(0, 6, txt=f"1. 培訓整體滿意度：{survey_data.get('s1_q1', '')} / 5", ln=1)
     pdf.cell(0, 6, txt=f"2. 培訓內容符合期望：{survey_data.get('s1_q2', '')} / 5", ln=1)
     pdf.cell(0, 6, txt=f"3. 培訓師表現：{survey_data.get('s1_q3', '')} / 5", ln=1)
-    pdf.multi_cell(0, 6, txt=f"4. 需要改進或增補內容：{clean_text(survey_data.get('s1_q4'))}")
+    print_safe_text(pdf, f"4. 需要改進或增補內容：{survey_data.get('s1_q4', '無')}")
     pdf.ln(3)
 
     # 二、個人興趣及公司活動
@@ -114,29 +124,29 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf.cell(0, 6, txt=f"1. 運動活動興趣：{survey_data.get('s2_q1', '')} / 5", ln=1)
     sports_str = ", ".join(survey_data.get('s2_q2', []))
     if survey_data.get('s2_q2_other'): sports_str += f" ({survey_data.get('s2_q2_other')})"
-    pdf.multi_cell(0, 6, txt=f"2. 運動愛好：{clean_text(sports_str)}")
+    print_safe_text(pdf, f"2. 運動愛好：{sports_str if sports_str else '無'}")
     pdf.cell(0, 6, txt=f"3. 義工活動意願：{survey_data.get('s2_q3', '')} / 5", ln=1)
     vol_str = ", ".join(survey_data.get('s2_q4', []))
     if survey_data.get('s2_q4_other'): vol_str += f" ({survey_data.get('s2_q4_other')})"
-    pdf.multi_cell(0, 6, txt=f"4. 公益活動興趣：{clean_text(vol_str)}")
+    print_safe_text(pdf, f"4. 公益活動興趣：{vol_str if vol_str else '無'}")
     pdf.cell(0, 6, txt=f"5. 協助籌辦活動興趣：{survey_data.get('s2_q5', '')} / 5", ln=1)
-    pdf.multi_cell(0, 6, txt=f"6. 工作與生活平衡看法：{clean_text(survey_data.get('s2_q6'))}")
-    pdf.multi_cell(0, 6, txt=f"7. 未來公司活動建議：{clean_text(survey_data.get('s2_q7'))}")
+    print_safe_text(pdf, f"6. 工作與生活平衡看法：{survey_data.get('s2_q6', '無')}")
+    print_safe_text(pdf, f"7. 未來公司活動建議：{survey_data.get('s2_q7', '無')}")
     pdf.ln(3)
 
     # 三、開放式問題
     pdf.set_font_size(12)
     pdf.cell(0, 8, txt="三、開放式問題", ln=1)
     pdf.set_font_size(10)
-    pdf.multi_cell(0, 6, txt=f"1. 對公司文化的看法：{clean_text(survey_data.get('s3_q1'))}")
-    pdf.multi_cell(0, 6, txt=f"2. 公司優勢與改進建議：{clean_text(survey_data.get('s3_q2'))}")
-    pdf.multi_cell(0, 6, txt=f"3. 希望獲得的額外支持/資源：{clean_text(survey_data.get('s3_q3'))}")
-    pdf.multi_cell(0, 6, txt=f"4. 對公司未來發展方向的建議：{clean_text(survey_data.get('s3_q4'))}")
-    pdf.multi_cell(0, 6, txt=f"5. 其他建議或意見：{clean_text(survey_data.get('s3_q5'))}")
+    print_safe_text(pdf, f"1. 對公司文化的看法：{survey_data.get('s3_q1', '無')}")
+    print_safe_text(pdf, f"2. 公司優勢與改進建議：{survey_data.get('s3_q2', '無')}")
+    print_safe_text(pdf, f"3. 希望獲得的額外支持/資源：{survey_data.get('s3_q3', '無')}")
+    print_safe_text(pdf, f"4. 對公司未來發展方向的建議：{survey_data.get('s3_q4', '無')}")
+    print_safe_text(pdf, f"5. 其他建議或意見：{survey_data.get('s3_q5', '無')}")
     pdf.ln(5)
 
     pdf.set_font_size(8)
-    pdf.multi_cell(0, 4, txt="聲明：本文件為內部培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理用途。")
+    print_safe_text(pdf, "聲明：本文件為內部培訓紀錄，由員工本人確認填答。個人資料僅供內部人力資源管理用途。", max_chars=45)
 
     return bytes(pdf.output())
 
@@ -281,7 +291,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送 (精簡 mailto 內文，確保 100% 觸發 Outlook)
+# 第三部分：報告下載與發送
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -317,7 +327,6 @@ elif st.session_state.step == 3:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
         st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
         
-        # 精簡超連結文字，防止超出瀏覽器 mailto 長度上限
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
         email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
