@@ -61,7 +61,6 @@ def clean_text(val):
     cleaned = str(val).replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
     return cleaned if cleaned else "無"
 
-# 防爆安全印字函數 (自動將中文依字數切行，避免 FPDF multi_cell 崩潰)
 def print_safe_text(pdf, text, max_chars=32):
     lines = textwrap.wrap(clean_text(text), width=max_chars)
     if not lines:
@@ -71,7 +70,7 @@ def print_safe_text(pdf, text, max_chars=32):
             pdf.cell(0, 6, txt=line, ln=1)
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (完全不用 multi_cell，絕對不崩潰)
+# 4. PDF 生成函數
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
@@ -291,7 +290,7 @@ elif st.session_state.step == 2:
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送
+# 第三部分：報告下載與發送 (兼顧超連結與複製電郵功能)
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -325,7 +324,7 @@ elif st.session_state.step == 3:
         st.warning("🔒 步驟 2 解鎖條件：請先點擊上方「步驟 1」按鈕下載 PDF 報告檔！")
     else:
         st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
-        st.subheader("步驟 2：選擇提交方式給 HR (電郵)")
+        st.subheader("步驟 2：選擇提交方式發送至 HR 電郵")
         
         st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
@@ -338,14 +337,18 @@ elif st.session_state.step == 3:
 （已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）"""
 
         mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
+        
         st.markdown(
             f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
             f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:8px;">'
-            f'📧 開啟 Outlook 寄至 hrd@jumboorient.com.hk'
+            f'📧 點此自動開啟 Outlook 寄至 hrd@jumboorient.com.hk'
             f'</button></a>',
             unsafe_allow_html=True
         )
-        st.caption("⚠️ 提示：開啟 Outlook 後，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
+        
+        st.caption("💡 若點擊上按鈕未彈出 Outlook，請直接複製下方 HR 電郵地址手動寄信並附加 PDF：")
+        st.code(email_to, language=None)
+        st.caption("⚠️ 提示：發送郵件時，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
 
         st.write("")
         st.write("")
