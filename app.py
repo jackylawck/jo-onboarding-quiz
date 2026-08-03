@@ -34,9 +34,9 @@ def get_questions():
 questions = get_questions()
 
 # ---------------------------------------------------------
-# 3. PDF 生成函數 (記憶體中繪製，支援中文)
+# 3. PDF 生成函數 (加入職員編號)
 # ---------------------------------------------------------
-def generate_pdf(name, dept, score, total, pass_rate, is_pass):
+def generate_pdf(name, emp_id, dept, score, total, pass_rate, is_pass):
     pdf = FPDF()
     pdf.add_page()
     
@@ -50,6 +50,7 @@ def generate_pdf(name, dept, score, total, pass_rate, is_pass):
     pdf.cell(200, 10, txt="新員工入職培訓考核結果", ln=True, align="C")
     pdf.ln(10)
     pdf.cell(200, 10, txt=f"姓名：{name}", ln=True)
+    pdf.cell(200, 10, txt=f"職員編號：{emp_id}", ln=True)
     pdf.cell(200, 10, txt=f"組別：{dept}", ln=True)
     pdf.cell(200, 10, txt=f"答對得分：{score} / {total}", ln=True)
     pdf.cell(200, 10, txt=f"合格率：{pass_rate:.1f}%", ln=True)
@@ -59,18 +60,41 @@ def generate_pdf(name, dept, score, total, pass_rate, is_pass):
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 4. 問卷 UI 畫面渲染
+# 4. 問卷 UI 畫面渲染 (預設組別下拉選單)
 # ---------------------------------------------------------
 st.title("📝 新員工入職培訓問卷")
+
+# 預設組別選單清單
+DEPT_OPTIONS = [
+    "請選擇組別",
+    "管理層",
+    "寫字樓",
+    "人力資源組",
+    "行政組",
+    "計量組",
+    "規劃驗證組",
+    "發判組",
+    "項目組",
+    "施工組",
+    "工程組",
+    "安全及環保組",
+    "營運審計組",
+    "會計組",
+    "物控組",
+    "倉管組",
+    "其他"
+]
 
 user_answers = {}
 
 with st.form("quiz_form"):
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     with col1:
         name = st.text_input("姓名 *")
     with col2:
-        dept = st.text_input("組別 *")
+        emp_id = st.text_input("職員編號 *")
+    with col3:
+        dept = st.selectbox("組別 *", DEPT_OPTIONS)
         
     st.divider()
     
@@ -91,11 +115,11 @@ with st.form("quiz_form"):
     submit_button = st.form_submit_button("提交問卷 (Submit)")
 
 # ---------------------------------------------------------
-# 5. 提交後處理：計分 + 下載 PDF + 開啟 Outlook 寄信
+# 5. 提交後處理：計分 (75分/15分合格) + 下載 PDF + 開啟 Outlook
 # ---------------------------------------------------------
 if submit_button:
-    if not name or not dept:
-        st.warning("請先填寫姓名與組別！")
+    if not name or not emp_id or dept == "請選擇組別":
+        st.warning("請先完整填寫姓名、職員編號並選擇組別！")
     else:
         score = 0
         total_items = 20  # 總計 20 分
@@ -123,7 +147,7 @@ if submit_button:
                         score += 1
 
         pass_rate = (score / total_items) * 100
-        is_pass = score >= 16  # 16 分即達 80% 合格
+        is_pass = score >= 15  # 15 分即達 75% 合格門檻
         status_str = "合格 (PASS)" if is_pass else "不合格 (FAIL)"
         
         # 前端結果展示
@@ -132,13 +156,13 @@ if submit_button:
             st.balloons()
             st.success("🎉 恭喜通過入職培訓考核！")
         else:
-            st.error("⚠️ 未達 16 分 (80%) 合格標準。")
+            st.error("⚠️ 未達 15 分 (75%) 合格標準。")
             
         st.divider()
         st.subheader("📩 請完成以下步驟發送結果給 HR 部門：")
 
         # 步驟一：下載 PDF 檔案
-        pdf_bytes = generate_pdf(name, dept, score, total_items, pass_rate, is_pass)
+        pdf_bytes = generate_pdf(name, emp_id, dept, score, total_items, pass_rate, is_pass)
         st.download_button(
             label="步驟 1：📥 下載考核紀錄 PDF (請隨信附上)",
             data=pdf_bytes,
@@ -146,16 +170,17 @@ if submit_button:
             mime="application/pdf"
         )
 
-        # 步驟二：自動組裝 Outlook 郵件 (mailto)
+        # 步驟二：自動組裝 Outlook 郵件
         email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
-        email_subject = f"【入職培訓結果】{dept} - {name} ({status_str})"
+        email_subject = f"【入職培訓結果】{dept} - {name} ({emp_id})"
         
-        email_body = f"""HR 同事：
+        email_body = f"""Dear HR：
 
-我是 {dept} 的 {name}。
+我是 {dept} 的 {name} ({emp_id})。
 我已完成新員工入職培訓問卷考核，考核結果如下：
 
 • 姓名：{name}
+• 職員編號：{emp_id}
 • 組別：{dept}
 • 答對得分：{score} / {total_items}
 • 合格率：{pass_rate:.1f}%
