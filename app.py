@@ -3,8 +3,7 @@ import json
 import urllib.parse
 from fpdf import FPDF
 import os
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone, timedelta
 
 st.set_page_config(page_title="入職培訓問卷及意見調查", page_icon="📝")
 
@@ -60,7 +59,7 @@ def clean_text(val):
     return cleaned if cleaned else "無"
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數 (加入日期與時間)
+# 4. PDF 生成函數 (包含日期時間)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF()
@@ -188,8 +187,8 @@ if st.session_state.step == 1:
             pass_rate = (score / total_items) * 100
             is_pass = score >= 15
             
-            # 取得香港時間
-            hk_tz = pytz.timezone('Asia/Hong_Kong')
+            # 使用原生 datetime 計算香港時間 (UTC+8)
+            hk_tz = timezone(timedelta(hours=8))
             now_hk = datetime.now(hk_tz)
             submit_time_str = now_hk.strftime("%Y-%m-%d %H:%M:%S")
 
