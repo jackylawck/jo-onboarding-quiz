@@ -5,6 +5,10 @@ from fpdf import FPDF
 import os
 import textwrap
 from datetime import datetime, timezone, timedelta
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
 st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝", layout="centered")
 
@@ -14,7 +18,6 @@ st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統"
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# 檢查 URL 參數是否帶有正確密鑰 (例如 SharePoint 嵌入時帶有 ?key=hr1 或 ?key=jo1996)
 query_params = st.query_params
 passed_key = query_params.get("key", "").lower()
 valid_access_code = st.secrets.get("ACCESS_CODE", "jo1996").lower()
@@ -44,8 +47,8 @@ if "step" not in st.session_state:
 if "quiz_data" not in st.session_state:
     st.session_state.quiz_data = {}
 
-if "pdf_downloaded" not in st.session_state:
-    st.session_state.pdf_downloaded = False
+if "email_sent" not in st.session_state:
+    st.session_state.email_sent = False
 
 # ---------------------------------------------------------
 # 3. 讀取測驗題庫 (完全由 Secrets 保密)
@@ -157,8 +160,45 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
 
     return bytes(pdf.output())
 
-def mark_as_downloaded():
-    st.session_state.pdf_downloaded = True
+# ---------------------------------------------------------
+# 5. 後端自動寄送電郵函數 (Python SMTP)
+# ---------------------------------------------------------
+def send_email_direct(b_info, q_res, status_str, pdf_bytes):
+    smtp_server = st.secrets.get("SMTP_SERVER", "smtp.office365.com")
+    smtp_port = int(st.secrets.get("SMTP_PORT", 587))
+    sender_email = st.secrets.get("SENDER_EMAIL", "hrd@jumboorient.com.hk")
+    sender_password = st.secrets.get("SENDER_PASSWORD", "")
+    receiver_email = st.secrets.get("HR_RECEIVER", "hrd@jumboorient.com.hk")
+
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
+
+    body = f"""Dear HR,
+
+員工已透過系統完成新員工入職培訓考核與意見調查，詳情如下：
+• 姓名：{b_info['name']}
+• 職員編號：{b_info['emp_id']}
+• 組別：{b_info['dept']}
+• 測驗得分：{q_res['score']} / {q_res['total']} ({status_str})
+• 提交時間：{st.session_state.quiz_data.get('submit_time', '')}
+
+PDF 完整考核報告檔案已作為附件隨信附上。"""
+
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    # 加入 PDF 附件
+    filename = f"入職培訓紀錄_{b_info['name']}.pdf"
+    part = MIMEApplication(pdf_bytes, Name=filename)
+    part['Content-Disposition'] = f'attachment; filename="{filename}"'
+    msg.attach(part)
+
+    # 透過 SMTP 發送
+    with smtplib.SMTP(smtp_server, smtp_port, timeout=15) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
 
 # =========================================================
 # 第一部分：新員工入職培訓測驗
@@ -284,7 +324,7 @@ elif st.session_state.step == 2:
         s3_q4 = st.text_area("4. 您對於公司未來的發展方向有什麼建議？")
         s3_q5 = st.text_area("5. 其他建議或意見？")
 
-        submit_step2 = st.form_submit_button("完成問卷並生成 PDF 報告 ➔")
+        submit_step2 = st.form_submit_button("完成問卷並進入送出頁面 ➔")
 
     if submit_step2:
         st.session_state.survey_data = {
@@ -295,10 +335,11 @@ elif st.session_state.step == 2:
             "s3_q1": s3_q1, "s3_q2": s3_q2, "s3_q3": s3_q3, "s3_q4": s3_q4, "s3_q5": s3_q5
         }
         st.session_state.step = 3
+        st.session_state.email_sent = False
         st.rerun()
 
 # =========================================================
-# 第三部分：報告下載與發送 (兼顧超連結與複製電郵功能)
+# 第三部分：一鍵發送與報告下載
 # =========================================================
 elif st.session_state.step == 3:
     b_info = st.session_state.quiz_data["basic_info"]
@@ -316,74 +357,46 @@ elif st.session_state.step == 3:
     pdf_bytes = generate_pdf(b_info, q_res, s_data, sub_time)
     
     st.divider()
-    st.subheader("📥 步驟 1：下載 PDF 報告檔 (必須先下載)")
+    st.subheader("📤 第一步：一鍵提交報告至 HR")
     
+    if not st.session_state.email_sent:
+        if st.button("🚀 點此一鍵自動送出報告至 HR 電郵 (自動附加 PDF 報告)", type="primary", use_container_width=True):
+            with st.spinner("系統正在自動打包 PDF 並寄出至 hrd@jumboorient.com.hk ..."):
+                try:
+                    send_email_direct(b_info, q_res, status_str, pdf_bytes)
+                    st.session_state.email_sent = True
+                    st.success("🎉 提交成功！考核與問卷報告已直接發送至 HR 電郵 (hrd@jumboorient.com.hk)。")
+                    st.balloons()
+                except Exception as e:
+                    st.error(f"⚠️ 自動發送失敗，請點選下方按鈕手動下載或寄送。錯誤資訊：{e}")
+    else:
+        st.success("✅ 報告已成功寄送至 HR 電郵！")
+
+    st.divider()
+    st.subheader("📥 備份與手動下載 (選填)")
     st.download_button(
-        label=f"點此下載「入職培訓紀錄_{b_info['name']}.pdf」",
+        label=f"💾 下載「入職培訓紀錄_{b_info['name']}.pdf」自行存檔",
         data=pdf_bytes,
         file_name=f"入職培訓紀錄_{b_info['name']}.pdf",
         mime="application/pdf",
-        on_click=mark_as_downloaded
+        use_container_width=True
     )
-    
-    st.divider()
-    
-    if not st.session_state.pdf_downloaded:
-        st.warning("🔒 步驟 2 解鎖條件：請先點擊上方「步驟 1」按鈕下載 PDF 報告檔！")
-    else:
-        st.success("✅ 已順利下載 PDF 報告！請選擇下方提交方式發送給 HR：")
-        st.subheader("步驟 2：選擇提交方式發送至 HR 電郵")
-        
-        st.markdown("### ✉️ 透過 Email / Outlook 發送 (主要方式)")
-        email_to = st.secrets.get("HR_EMAIL", "hrd@jumboorient.com.hk")
-        email_subject = f"【入職培訓結果】{b_info['dept']} - {b_info['name']} ({b_info['emp_id']})"
-        email_body = f"""Dear HR,
 
-我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
-我已於 {sub_time} 完成新員工入職培訓問卷考核（得分：{q_res['score']}/{q_res['total']}，{status_str}）。
-
-（已下載並附上「入職培訓紀錄_{b_info['name']}.pdf」報告檔案）"""
-
-        mailto_url = f"mailto:{email_to}?subject={urllib.parse.quote(email_subject)}&body={urllib.parse.quote(email_body)}"
-        
+    with st.expander("💬 備用提交方式 (WhatsApp 或手動寄信)"):
+        wa_phone = "85295423912"
+        wa_msg = f"Dear HR,\n我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。我已完成新員工入職培訓問卷考核（得分：{q_res['score']}/{q_res['total']}，{status_str}）。"
+        wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
         st.markdown(
-            f'<a href="{mailto_url}" target="_blank" style="text-decoration:none;">'
-            f'<button style="background-color:#0078D4; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:16px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:8px;">'
-            f'📧 點此自動開啟 Outlook 寄至 hrd@jumboorient.com.hk'
+            f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
+            f'<button style="background-color:#25D366; color:white; padding:10px 16px; border:none; border-radius:6px; font-size:14px; font-weight:bold; cursor:pointer; width:100%; margin-top:8px;">'
+            f'💬 透過 WhatsApp 通知 HR (9542 3912)'
             f'</button></a>',
             unsafe_allow_html=True
         )
-        
-        st.caption("💡 若點擊上按鈕未彈出 Outlook，請直接複製下方 HR 電郵地址手動寄信並附加 PDF：")
-        st.code(email_to, language=None)
-        st.caption("⚠️ 提示：發送郵件時，請將步驟 1 下載的 PDF 報告檔案拖進郵件作為附件一同發送。")
-
-        st.write("")
-        st.write("")
-
-        with st.expander("💬 如無法使用電郵，可點此展開透過 WhatsApp 發送給 HR"):
-            st.markdown("#### 💬 方式 B：透過 WhatsApp 發送給 HR")
-            wa_phone = "85295423912"
-            wa_msg = f"""Dear HR,
-
-我是 {b_info['dept']} 的 {b_info['name']} ({b_info['emp_id']})。
-我已於 {sub_time} 完成新員工入職培訓問卷考核，成果如下：
-• 得分：{q_res['score']} / {q_res['total']} ({status_str})
-
-（已下載 PDF 報告檔，隨後於此對話發送給您）"""
-            wa_url = f"https://wa.me/{wa_phone}?text={urllib.parse.quote(wa_msg)}"
-            st.markdown(
-                f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
-                f'<button style="background-color:#25D366; color:white; padding:12px 20px; border:none; border-radius:6px; font-size:15px; font-weight:bold; cursor:pointer; width:100%; margin-bottom:8px;">'
-                f'💬 開啟 WhatsApp (9542 3912)'
-                f'</button></a>',
-                unsafe_allow_html=True
-            )
-            st.caption("⚠️ 提示：開啟 WhatsApp 對話後，請點擊加號/夾子圖示傳送剛下載的 PDF 報告。")
 
     st.write("")
     if st.button("🔄 重新填寫問卷"):
         st.session_state.step = 1
         st.session_state.quiz_data = {}
-        st.session_state.pdf_downloaded = False
+        st.session_state.email_sent = False
         st.rerun()
