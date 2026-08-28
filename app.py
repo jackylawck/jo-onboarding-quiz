@@ -13,16 +13,20 @@ from email.mime.application import MIMEApplication
 st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝", layout="centered")
 
 # ---------------------------------------------------------
-# 1. 前端門禁驗證 (支援 URL 參數自動解鎖 & 手動輸入)
+# 1. 前端門禁驗證 (純 Secrets 動態比對，絕無硬編碼明文密碼)
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-query_params = st.query_params
-passed_key = query_params.get("key", "").lower()
-valid_access_code = st.secrets.get("ACCESS_CODE", "jo1996").lower()
+# 從 Secrets 安全讀取正確的通行碼
+valid_access_code = str(st.secrets.get("ACCESS_CODE", "")).strip()
 
-if passed_key in [valid_access_code, "hr1", "jo1996"]:
+# 檢查 URL 參數是否帶有金鑰 (?key=...)
+query_params = st.query_params
+passed_key = str(query_params.get("key", "")).strip()
+
+# 只要 URL 參數符合 Secrets 設定，即放行
+if valid_access_code and passed_key == valid_access_code:
     st.session_state.authenticated = True
 
 if not st.session_state.authenticated:
@@ -31,11 +35,11 @@ if not st.session_state.authenticated:
     st.write("")
     user_code = st.text_input("請輸入員工通行碼以開始測驗：", type="password")
     if st.button("確認進入"):
-        if user_code.lower() in [valid_access_code, "hr1", "jo1996"]:
+        if valid_access_code and user_code.strip() == valid_access_code:
             st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("通行碼錯誤！請重新輸入或由公司內部 SharePoint 入口進入。")
+            st.error("通行碼錯誤！請重新輸入或聯絡 HR。")
     st.stop()
 
 # ---------------------------------------------------------
@@ -166,7 +170,7 @@ def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
 def send_email_direct(b_info, q_res, status_str, pdf_bytes):
     smtp_server = st.secrets.get("SMTP_SERVER", "smtp.office365.com")
     smtp_port = int(st.secrets.get("SMTP_PORT", 587))
-    sender_email = st.secrets.get("SENDER_EMAIL", "hrd@jumboorient.com.hk")
+    sender_email = st.secrets.get("SENDER_EMAIL", "")
     sender_password = st.secrets.get("SENDER_PASSWORD", "")
     receiver_email = st.secrets.get("HR_RECEIVER", "hrd@jumboorient.com.hk")
 
@@ -361,11 +365,11 @@ elif st.session_state.step == 3:
     
     if not st.session_state.email_sent:
         if st.button("🚀 點此一鍵自動送出報告至 HR 電郵 (自動附加 PDF 報告)", type="primary", use_container_width=True):
-            with st.spinner("系統正在自動打包 PDF 並寄出至 hrd@jumboorient.com.hk ..."):
+            with st.spinner("系統正在自動打包 PDF 並寄出至 HR 電郵 ..."):
                 try:
                     send_email_direct(b_info, q_res, status_str, pdf_bytes)
                     st.session_state.email_sent = True
-                    st.success("🎉 提交成功！考核與問卷報告已直接發送至 HR 電郵 (hrd@jumboorient.com.hk)。")
+                    st.success("🎉 提交成功！考核與問卷報告已直接發送至 HR 電郵。")
                     st.balloons()
                 except Exception as e:
                     st.error(f"⚠️ 自動發送失敗，請點選下方按鈕手動下載或寄送。錯誤資訊：{e}")
