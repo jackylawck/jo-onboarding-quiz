@@ -79,6 +79,5 @@ QUESTIONS_JSON = '''[ ...題庫內容... ]'''
 
 * **管控編號 (Document ID)**: `JO-HR-REC-2026-V1`
 * **收件對象 (HR Email)**: `hrd@jumboorient.com.hk`
-* **合規標準 (Compliance)**: Integrated Management System (ISO 9001 / ISO 14001 / ISO 45001) Controlled Records
 
 
