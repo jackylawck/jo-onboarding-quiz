@@ -6,25 +6,33 @@ import os
 import textwrap
 from datetime import datetime, timezone, timedelta
 
-st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝")
+st.set_page_config(page_title="東淦新員工入職培訓考核及問卷系統", page_icon="📝", layout="centered")
 
 # ---------------------------------------------------------
-# 1. 前端門禁驗證 (Access Code)
+# 1. 前端門禁驗證 (支援 URL 參數自動解鎖 & 手動輸入)
 # ---------------------------------------------------------
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+
+# 檢查 URL 參數是否帶有正確密鑰 (例如 SharePoint 嵌入時帶有 ?key=hr1 或 ?key=jo1996)
+query_params = st.query_params
+passed_key = query_params.get("key", "").lower()
+valid_access_code = st.secrets.get("ACCESS_CODE", "jo1996").lower()
+
+if passed_key in [valid_access_code, "hr1", "jo1996"]:
+    st.session_state.authenticated = True
 
 if not st.session_state.authenticated:
     st.title("🔒 東淦新員工入職培訓考核及問卷系統")
     st.markdown("🏢 [東淦工程有限公司 (Jumbo Orient) 官方網站](https://www.jumboorient.com.hk/)", unsafe_allow_html=True)
     st.write("")
     user_code = st.text_input("請輸入員工通行碼以開始測驗：", type="password")
-    if st.button("確認"):
-        if user_code == st.secrets.get("ACCESS_CODE", "jo1996"):
+    if st.button("確認進入"):
+        if user_code.lower() in [valid_access_code, "hr1", "jo1996"]:
             st.session_state.authenticated = True
             st.rerun()
         else:
-            st.error("通行碼錯誤！請重新輸入或聯絡 HR。")
+            st.error("通行碼錯誤！請重新輸入或由公司內部 SharePoint 入口進入。")
     st.stop()
 
 # ---------------------------------------------------------
@@ -40,7 +48,7 @@ if "pdf_downloaded" not in st.session_state:
     st.session_state.pdf_downloaded = False
 
 # ---------------------------------------------------------
-# 3. 讀取測驗題庫
+# 3. 讀取測驗題庫 (完全由 Secrets 保密)
 # ---------------------------------------------------------
 @st.cache_data
 def get_questions():
@@ -70,7 +78,7 @@ def print_safe_text(pdf, text, max_chars=32):
             pdf.cell(0, 6, txt=line, ln=1)
 
 # ---------------------------------------------------------
-# 4. PDF 生成函數
+# 4. PDF 生成函數 (繁體中文合規受控檔案)
 # ---------------------------------------------------------
 def generate_pdf(basic_info, quiz_result, survey_data, submit_time_str):
     pdf = FPDF(orientation='P', unit='mm', format='A4')
