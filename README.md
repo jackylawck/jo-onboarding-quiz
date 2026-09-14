@@ -7,7 +7,7 @@ An Automated Enterprise Onboarding Assessment & Employee Feedback Web System for
 
 ## 🌐 項目簡介 / System Overview
 
-**jo-onboard-quiz** 是一個基於 Streamlit 開發的獨立企業級 Web 系統。系統整合了「入職培訓考核測驗」、「培訓滿意度評估」及「員工興趣調查」，並能即時繪製生成受控繁體中文 PDF 報告 (`JO-HR-REC-2026-V1`)。員工完成後只需一鍵點擊，後端即透過 Python SMTP 自動將報告及 PDF 附件直接寄送至 HR 部門 (`hrd@jumboorient.com.hk`)，實現完全無紙化與自動化管理。
+**jo-onboard-quiz** 是一個基於 Streamlit 開發的獨立企業級 Web 系統。系統整合了「入職培訓考核測驗」、「培訓滿意度評估」及「員工興趣調查」，並能即時繪製生成受控繁體中文 PDF 報告 (`JO-HR-REC-2026-V1`)。員工完成後只需一鍵點擊，後端即透過 Python SMTP 自動將報告及 PDF 附件直接寄送至 HR 部門 (`...@jumboorient.com.hk`)，實現完全無紙化與自動化管理。
 
 ---
 
