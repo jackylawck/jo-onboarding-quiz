@@ -62,9 +62,7 @@ ACCESS_CODE = "your_company_passcode"
 # 2. HR 接收電郵
 HR_RECEIVER = "hrd@jumboorient.com.hk"
 
-# 3. 郵件伺服器與寄件帳號設定 (M365 SMTP)
-SMTP_SERVER = "smtp.office365.com"
-SMTP_PORT = 587
+# 3. 郵件伺服器與寄件帳號設定
 SENDER_EMAIL = "your_sender_account@jumboorient.com.hk"
 SENDER_PASSWORD = "your_smtp_app_password"
 
