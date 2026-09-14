@@ -60,7 +60,7 @@ An Automated Enterprise Onboarding Assessment & Employee Feedback Web System for
 ACCESS_CODE = "your_company_passcode"
 
 # 2. HR 接收電郵
-HR_RECEIVER = "hrd@jumboorient.com.hk"
+HR_RECEIVER = "...@jumboorient.com.hk"
 
 # 3. 郵件伺服器與寄件帳號設定
 SENDER_EMAIL = "your_sender_account@jumboorient.com.hk"
